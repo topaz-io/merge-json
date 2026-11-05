@@ -5,7 +5,7 @@ project_name: topaz
 env:
   # https://goreleaser.com/customization/env/
   - REGISTRY=ghcr.io
-  - ORG=topaz-authz
+  - ORG=topaz-io
   - REPO=merge-json
   - DESCRIPTION="merge-json"
   - LICENSE=MIT
