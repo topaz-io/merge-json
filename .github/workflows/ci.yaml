@@ -1,0 +1,88 @@
+---
+name: ci
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+  pull_request:
+
+env:
+  PRE_RELEASE: ${{ github.ref == 'refs/heads/main' && 'main' || '' }}
+  GO_RELEASER_VERSION: "v2.20.0"
+  GO_LANGCI_LINT_VERSION: "v2.15.2"
+  GO_TESTSUM_VERSION: "1.13.0"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        uses: actions/checkout@v7
+      -
+        name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      -
+        name: Build
+        uses: goreleaser/goreleaser-action@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          distribution: goreleaser
+          version: ${{ env.GO_RELEASER_VERSION }}
+          args: build --clean --snapshot --single-target
+      -
+        name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: ${{ env.GO_LANGCI_LINT_VERSION }}
+          args: --timeout=120s
+      -
+        name: Test Setup
+        run: |
+          make install-gotestsum
+      -
+        name: Test
+        run: |
+         .ext/bin/gotestsum --format short-verbose -- ./... -count=1 -timeout 120s -parallel=1 -v -coverprofile=cover.out -coverpkg=./...
+      -
+        name: Upload code coverage
+        uses: shogo82148/actions-goveralls@v1
+        continue-on-error: true
+        with:
+          path-to-profile: cover.out
+
+  release:
+    needs: [test]
+    runs-on: ubuntu-latest
+    env:
+      ASERTO_TAP: "{{ secret.ASERTO_TAP }}"
+    # Only release when ref is a tag
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      -
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      -
+        name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      -
+        name: Release
+        uses: goreleaser/goreleaser-action@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          distribution: goreleaser
+          version: ${{ env.GO_RELEASER_VERSION }}
+          args: release --clean

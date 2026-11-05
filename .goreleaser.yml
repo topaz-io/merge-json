@@ -1,0 +1,88 @@
+version: 2
+
+project_name: topaz
+
+env:
+  # https://goreleaser.com/customization/env/
+  - REGISTRY=ghcr.io
+  - ORG=topaz-authz
+  - REPO=merge-json
+  - DESCRIPTION="merge-json"
+  - LICENSE=MIT
+
+before:
+  # https://goreleaser.com/customization/hooks/
+  hooks:
+
+builds:
+  # https://goreleaser.com/customization/build/
+  - id: build
+    main: main.go
+    binary: merge-json
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s
+      - -w
+      - -X github.com/{{ .Env.ORG }}/{{ .Env.REPO }}/pkg/version.ver={{.Version}}
+      - -X github.com/{{ .Env.ORG }}/{{ .Env.REPO }}/pkg/version.commit={{.ShortCommit}}
+      - -X github.com/{{ .Env.ORG }}/{{ .Env.REPO }}/pkg/version.date={{.Date}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  # https://goreleaser.com/customization/archive/
+  - formats: 
+      - zip
+    ids:
+    - build
+    files:
+      - LICENSE
+      - README.md
+    name_template: >-
+      merge-json_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  # https://goreleaser.com/customization/checksum/
+  name_template: "checksums.txt"
+
+snapshot:
+  # https://goreleaser.com/customization/snapshots/
+  version_template: "{{ incpatch .Version }}-{{ .ShortCommit }}{{ if .IsGitDirty }}-dirty{{ end }}"
+
+source:
+  # https://goreleaser.com/customization/source/
+  enabled: false
+
+changelog:
+  # https://goreleaser.com/customization/changelog/
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  # https://goreleaser.com/customization/release/
+  github:
+    owner: "{{ .Env.ORG }}"
+    name: "{{ .Env.REPO }}"
+
+  draft: false
+  prerelease: "false"
+  name_template: "{{.ProjectName}} {{.Tag}}"
+
+blobs:
+  # https://goreleaser.com/customization/blob/
+
+brews:
+#   # https://goreleaser.com/customization/homebrew/
